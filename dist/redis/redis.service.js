@@ -22,8 +22,25 @@ let RedisService = class RedisService {
     onModuleDestroy() {
         this.redisClient.quit();
     }
+    async getClient() {
+        return this.redisClient;
+    }
     ping() {
         return this.redisClient.ping();
+    }
+    async set(setRedisValueDto) {
+        const { key, value } = setRedisValueDto;
+        await this.redisClient.set(key, value, { EX: 50 });
+        return 'Success';
+    }
+    async get(key) {
+        return await this.redisClient.get(key);
+    }
+    async exists(key) {
+        return (await this.redisClient.exists(key)) === 1;
+    }
+    async del(key) {
+        return await this.redisClient.del(key);
     }
 };
 exports.RedisService = RedisService;

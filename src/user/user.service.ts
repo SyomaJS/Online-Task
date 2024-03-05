@@ -50,8 +50,8 @@ export class UserService {
     user: User;
     access_token: string;
   }> {
-    // const ping = await this.redisService.ping();
-    // console.log(`Ping of redis: ${ping}`);
+    const ping = await this.redisService.ping();
+    console.log(`Ping of redis: ${ping}`); // Pong
 
     const { login, password } = signInUserDto;
 
@@ -73,22 +73,36 @@ export class UserService {
       httpOnly: true,
     });
 
-    // const redisClient = this.redisService.getClient();
+    const setDto = {
+      key: `refresh_token_${user.id}`,
+      value: tokens.refresh_token,
+    };
 
-    // await redisClient.set(
-    //   `access_token_${user.id}`,
-    //   tokens.access_token,
-    //   'EX',
-    //   parseInt(process.env.ACCESS_TOKEN_TIME),
-    // );
-    // await redisClient.set(
-    //   `refresh_token_${user.id}`,
-    //   tokens.refresh_token,
-    //   'EX',
-    //   parseInt(process.env.REFRESH_TOKEN_TIME),
-    // );
+    await this.redisService.set(setDto);
 
     return { user, access_token: tokens.access_token };
+  }
+
+  async logout(refreshToken: string, res: Response) {
+    const userData: IPayloadType = await this.jwtService.decode(refreshToken);
+
+    if (!userData) {
+      throw new ForbiddenException('Invalid refresh token');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userData.id },
+    });
+
+    res.clearCookie('refresh_token');
+    await this.redisService.del(`refresh_token_${userData.id}`);
+
+    const response = {
+      message: 'Successfully logged out',
+      user: user,
+    };
+
+    return response;
   }
 
   private async findByLogin(login: string) {
@@ -101,7 +115,6 @@ export class UserService {
       throw new InternalServerErrorException('Error while fetching user');
     }
   }
-
   async getProfile(accessToken: string): Promise<User> {
     let decodedToken: IPayloadType, user_id: number;
 
@@ -121,27 +134,6 @@ export class UserService {
     }
 
     return user;
-  }
-
-  async logout(refreshToken: string, res: Response) {
-    const userData: IPayloadType = await this.jwtService.decode(refreshToken);
-
-    if (!userData) {
-      throw new ForbiddenException('Invalid refresh token');
-    }
-
-    const user = await this.userRepository.findOne({
-      where: { id: userData.id },
-    });
-
-    res.clearCookie('refresh_token');
-
-    const response = {
-      message: 'Successfully logged out',
-      user: user,
-    };
-
-    return response;
   }
 
   async findOne(id: number): Promise<User> {

@@ -40,6 +40,8 @@ let UserService = class UserService {
         return this.userRepository.save(newUser);
     }
     async signin(signInUserDto, res) {
+        const ping = await this.redisService.ping();
+        console.log(`Ping of redis: ${ping}`);
         const { login, password } = signInUserDto;
         const user = await this.findByLogin(login);
         if (!user) {
@@ -54,7 +56,28 @@ let UserService = class UserService {
             maxAge: 15 * 24 * 60 * 60 * 1000,
             httpOnly: true,
         });
+        const setDto = {
+            key: `refresh_token_${user.id}`,
+            value: tokens.refresh_token,
+        };
+        await this.redisService.set(setDto);
         return { user, access_token: tokens.access_token };
+    }
+    async logout(refreshToken, res) {
+        const userData = await this.jwtService.decode(refreshToken);
+        if (!userData) {
+            throw new common_1.ForbiddenException('Invalid refresh token');
+        }
+        const user = await this.userRepository.findOne({
+            where: { id: userData.id },
+        });
+        res.clearCookie('refresh_token');
+        await this.redisService.del(`refresh_token_${userData.id}`);
+        const response = {
+            message: 'Successfully logged out',
+            user: user,
+        };
+        return response;
     }
     async findByLogin(login) {
         try {
@@ -83,21 +106,6 @@ let UserService = class UserService {
             throw new common_1.NotFoundException('User not found with such id');
         }
         return user;
-    }
-    async logout(refreshToken, res) {
-        const userData = await this.jwtService.decode(refreshToken);
-        if (!userData) {
-            throw new common_1.ForbiddenException('Invalid refresh token');
-        }
-        const user = await this.userRepository.findOne({
-            where: { id: userData.id },
-        });
-        res.clearCookie('refresh_token');
-        const response = {
-            message: 'Successfully logged out',
-            user: user,
-        };
-        return response;
     }
     async findOne(id) {
         const user = await this.userRepository.findOne({ where: { id: id } });

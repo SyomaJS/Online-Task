@@ -14,12 +14,12 @@ export declare class UserService {
         user: User;
         access_token: string;
     }>;
-    private findByLogin;
-    getProfile(accessToken: string): Promise<User>;
     logout(refreshToken: string, res: Response): Promise<{
         message: string;
         user: User;
     }>;
+    private findByLogin;
+    getProfile(accessToken: string): Promise<User>;
     findOne(id: number): Promise<User>;
     getTokens(user: User): Promise<{
         access_token: string;
